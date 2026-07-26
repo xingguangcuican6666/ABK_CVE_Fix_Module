@@ -1,0 +1,30 @@
+From 19fbea31785113700731f4b458d7e20d05777729 Mon Sep 17 00:00:00 2001
+From: Sebastian Ene <sebastianene@google.com>
+Date: Wed, 23 Jul 2025 10:53:26 +0000
+Subject: [PATCH] ANDROID: KVM: arm64: Don't copy pvmfw pages more than once
+
+If a pvmfw page is relinquished from the guest back to the host, disable
+subsequent re-faulting of the pvmfw image for the pVM if a new page is
+donated back to the same IPA region.
+
+Bug: 432439762
+Change-Id: Ibe7ba22bc19cad0a7c31dedae64c29e10537b669
+Signed-off-by: Sebastian Ene <sebastianene@google.com>
+---
+ arch/arm64/kvm/hyp/nvhe/mem_protect.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/mem_protect.c b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+index b37d5b7225e7..c102c8b89b0b 100644
+--- a/arch/arm64/kvm/hyp/nvhe/mem_protect.c
++++ b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+@@ -363,6 +363,9 @@ int __pkvm_guest_relinquish_to_host(struct pkvm_hyp_vcpu *vcpu,
+ 			hyp_poison_page(data.pa);
+ 			psci_mem_protect_dec(1);
+ 		}
++
++		if (pkvm_ipa_range_has_pvmfw(vm, ipa, ipa + PAGE_SIZE))
++			vm->kvm.arch.pkvm.pvmfw_load_addr = PVMFW_INVALID_LOAD_ADDR;
+ 	}
+ 
+ 	guest_unlock_component(vm);

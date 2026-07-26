@@ -1,0 +1,53 @@
+From ae242b26371808a221578b89c937568781719d2c Mon Sep 17 00:00:00 2001
+From: Quentin Perret <qperret@google.com>
+Date: Tue, 16 Sep 2025 08:02:46 +0000
+Subject: [PATCH] ANDROID: KVM: arm64: Check PGD alignment when creating a pVM
+
+Martijn reported a hypervisor crash when providing pKVM with an
+undersized PGD allocation. Indeed, although the size of the PGD
+allocation at EL2 is not under host control, a smaller host-side
+allocation can lead to providing pKVM with a misaligned PGD, which will
+cause the guest stage-2 init to fail in a bad way. Specifically,
+guest_s2_zalloc_pages_exact() expects a successful allocation from
+hyp_alloc_pages(), which can only happen if the pool has been pre-filled
+with a physically aligned high-order page.
+
+In order to guarantee allocation success in this path, check the
+host-provided PGD alignment early on.
+
+Bug: 443668075
+Change-Id: I170963edc5721cf368a506bcdc4b2d0cdb462f78
+Fixes: ab3b93a33d0e ("FROMLIST: KVM: arm64: Add infrastructure to create and track pKVM instances at EL2")
+Reported-by: Martijn Bogaard <martijnbogaard@google.com>
+Signed-off-by: Quentin Perret <qperret@google.com>
+---
+ arch/arm64/kvm/hyp/nvhe/mem_protect.c | 2 +-
+ arch/arm64/kvm/hyp/nvhe/pkvm.c        | 2 ++
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/arch/arm64/kvm/hyp/nvhe/mem_protect.c b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+index db34c79e4fd5..41712b61603a 100644
+--- a/arch/arm64/kvm/hyp/nvhe/mem_protect.c
++++ b/arch/arm64/kvm/hyp/nvhe/mem_protect.c
+@@ -210,7 +210,7 @@ static void *guest_s2_zalloc_pages_exact(size_t size)
+ {
+ 	void *addr = hyp_alloc_pages(&current_vm->pool, get_order(size));
+ 
+-	WARN_ON(size != (PAGE_SIZE << get_order(size)));
++	WARN_ON(!addr || size != (PAGE_SIZE << get_order(size)));
+ 	hyp_split_page(hyp_virt_to_page(addr));
+ 
+ 	return addr;
+diff --git a/arch/arm64/kvm/hyp/nvhe/pkvm.c b/arch/arm64/kvm/hyp/nvhe/pkvm.c
+index ba09c7de6901..614298c51d28 100644
+--- a/arch/arm64/kvm/hyp/nvhe/pkvm.c
++++ b/arch/arm64/kvm/hyp/nvhe/pkvm.c
+@@ -730,6 +730,8 @@ int __pkvm_init_vm(struct kvm *host_kvm, unsigned long vm_hva,
+ 	vm_size = pkvm_get_hyp_vm_size(nr_vcpus);
+ 	last_ran_size = pkvm_get_last_ran_size();
+ 	pgd_size = kvm_pgtable_stage2_pgd_size(host_mmu.arch.vtcr);
++	if (!IS_ALIGNED(pgd_hva, pgd_size))
++		goto err_unpin_kvm;
+ 
+ 	ret = -ENOMEM;
+ 

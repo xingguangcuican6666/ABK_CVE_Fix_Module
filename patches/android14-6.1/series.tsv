@@ -1,0 +1,14 @@
+# patch	cves	guard_file	guard_string	subject
+0001-f2fs-fix-to-truncate-preallocated-blocks-in-f2fs_fil.patch	CVE-2024-43859	fs/f2fs/file.c	static int finish_preallocate_blocks(struct inode *inode)	f2fs: fix to truncate preallocated blocks in f2fs_file_open()
+0002-af_unix-Don-t-call-skb_get-for-OOB-skb.patch	CVE-2025-38236	net/unix/garbage.c	skb_queue_splice_init(embryo_queue, hitlist);	af_unix: Don't call skb_get() for OOB skb. (prerequisite)
+0003-af_unix-Don-t-leave-consecutive-consumed-OOB-skbs.patch	CVE-2025-38236	net/unix/af_unix.c	read_skb = oob_skb->prev;	af_unix: Don't leave consecutive consumed OOB skbs.
+0004-UPSTREAM-eventpoll-don-t-decrement-ep-refcount-while.patch	CVE-2025-38349	fs/eventpoll.c	WARN_ON_ONCE(ep_refcount_dec_and_test(ep));	eventpoll: don't decrement ep refcount while still holding the ep mutex
+0005-ANDROID-KVM-arm64-Don-t-copy-pvmfw-pages-more-than-o.patch	CVE-2025-48610	arch/arm64/kvm/hyp/nvhe/mem_protect.c	pkvm_ipa_range_has_pvmfw(vm, ipa, ipa + PAGE_SIZE)	KVM: arm64: Don't copy pvmfw pages more than once
+0006-UPSTREAM-xfrm-interface-fix-use-after-free-after-cha.patch	CVE-2025-38500	net/xfrm/xfrm_interface_core.c	if (p.collect_md || xi->p.collect_md) {	xfrm: interface: fix use-after-free after changing collect_md xfrm interface
+0007-UPSTREAM-vsock-Do-not-allow-binding-to-VMADDR_PORT_A.patch	CVE-2025-38618	net/vmw_vsock/af_vsock.c	if (port == VMADDR_PORT_ANY ||	vsock: Do not allow binding to VMADDR_PORT_ANY
+0008-tls-fix-handling-of-zero-length-records-on-the-rx_li.patch	CVE-2025-39682	net/tls/tls_sw.c	(control && control != TLS_RECORD_TYPE_DATA))	tls: fix handling of zero-length records on the rx_list
+0009-UPSTREAM-tls-make-sure-to-abort-the-stream-if-header.patch	CVE-2025-39946	net/tls/tls.h	void tls_strp_abort_strp(struct tls_strparser *strp, int err);	tls: make sure to abort the stream if headers are bogus
+0010-FROMGIT-KVM-arm64-Check-the-untrusted-offset-in-FF-A.patch	CVE-2025-40266	arch/arm64/kvm/hyp/nvhe/ffa.c	u32 offset, nr_ranges, checked_offset;	KVM: arm64: Check the untrusted offset in FF-A memory share
+0011-ANDROID-KVM-arm64-size-overflow-checks-for-mem_prote.patch	CVE-2026-0028,CVE-2026-0030,CVE-2026-0031	arch/arm64/kvm/hyp/nvhe/mem_protect.c	if (check_add_overflow(addr, size, &end))	KVM: arm64: size overflow checks for mem_protect HVCs
+0012-ANDROID-KVM-arm64-Check-PGD-alignment-when-creating-.patch	CVE-2026-0029	arch/arm64/kvm/hyp/nvhe/pkvm.c	if (!IS_ALIGNED(pgd_hva, pgd_size))	KVM: arm64: Check PGD alignment when creating a pVM
+0013-ANDROID-arm64-Disable-MTE-at-EL1-and-EL0-when-not-su.patch	CVE-2026-0038	arch/arm64/kvm/arm.c	params->hcr_el2 |= HCR_ATA;	arm64: Disable MTE at EL1 and EL0 when not supported (partial coverage)

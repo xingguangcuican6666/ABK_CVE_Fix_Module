@@ -1,0 +1,65 @@
+From 652b7b6bf9a62cc12c3a071bab4e92314f046739 Mon Sep 17 00:00:00 2001
+From: Fuad Tabba <tabba@google.com>
+Date: Tue, 11 Nov 2025 15:07:56 +0000
+Subject: [PATCH] ANDROID: arm64: Disable MTE at EL1 and EL0 when not supported
+ or disabled
+
+If MTE is not supported by the hardware, or disabled in the kernel
+configuration or in the command line. it should be disabled. If hardware
+supports MTE, but it is disabled by software, this could result in a
+buggy or a malicious host using the Memory Tag Extention, crashing the
+system, or compromising guests.
+
+Disable Memory Tagging altogether by trapping it to EL2 if it's not
+supported or disabled at the host.
+
+Bug: 459479964
+Change-Id: If539d9366e5c06155f63d6aea9bef123c8bc251d
+Signed-off-by: Fuad Tabba <tabba@google.com>
+---
+ arch/arm64/include/asm/kvm_arm.h | 2 +-
+ arch/arm64/kernel/head.S         | 2 +-
+ arch/arm64/kvm/arm.c             | 4 ++++
+ 3 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/arch/arm64/include/asm/kvm_arm.h b/arch/arm64/include/asm/kvm_arm.h
+index 7313fac7086d..c96d9504ce4b 100644
+--- a/arch/arm64/include/asm/kvm_arm.h
++++ b/arch/arm64/include/asm/kvm_arm.h
+@@ -87,7 +87,7 @@
+ 			 HCR_AMO | HCR_SWIO | HCR_TIDCP | HCR_RW | HCR_TLOR | \
+ 			 HCR_FMO | HCR_IMO | HCR_PTW | HCR_TID3 )
+ #define HCR_VIRT_EXCP_MASK (HCR_VSE | HCR_VI | HCR_VF)
+-#define HCR_HOST_NVHE_FLAGS (HCR_RW | HCR_API | HCR_APK | HCR_ATA)
++#define HCR_HOST_NVHE_FLAGS (HCR_RW | HCR_API | HCR_APK)
+ #define HCR_HOST_NVHE_PROTECTED_FLAGS (HCR_HOST_NVHE_FLAGS | HCR_TSC)
+ #define HCR_HOST_VHE_FLAGS (HCR_RW | HCR_TGE | HCR_E2H)
+ 
+diff --git a/arch/arm64/kernel/head.S b/arch/arm64/kernel/head.S
+index b9c1a506798e..cf67828ec178 100644
+--- a/arch/arm64/kernel/head.S
++++ b/arch/arm64/kernel/head.S
+@@ -506,7 +506,7 @@ SYM_INNER_LABEL(init_el1, SYM_L_LOCAL)
+ 	eret
+ 
+ SYM_INNER_LABEL(init_el2, SYM_L_LOCAL)
+-	mov_q	x0, HCR_HOST_NVHE_FLAGS
++	mov_q	x0, HCR_HOST_NVHE_FLAGS | HCR_ATA
+ 	msr	hcr_el2, x0
+ 	isb
+ 
+diff --git a/arch/arm64/kvm/arm.c b/arch/arm64/kvm/arm.c
+index d37fdbde77a6..fa9465b0202a 100644
+--- a/arch/arm64/kvm/arm.c
++++ b/arch/arm64/kvm/arm.c
+@@ -1732,6 +1732,10 @@ static void cpu_prepare_hyp_mode(int cpu)
+ 		params->hcr_el2 = HCR_HOST_NVHE_PROTECTED_FLAGS;
+ 	else
+ 		params->hcr_el2 = HCR_HOST_NVHE_FLAGS;
++
++	if (system_supports_mte())
++		params->hcr_el2 |= HCR_ATA;
++
+ 	params->vttbr = params->vtcr = 0;
+ 	params->hfgwtr_el2 = HFGxTR_EL2_nSMPRI_EL1_MASK | HFGxTR_EL2_nTPIDR2_EL0_MASK;
+ 
