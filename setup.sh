@@ -23,14 +23,37 @@ abk_log "kernel root: $KERNEL_ROOT"
 # Options (set as environment variables, e.g. through workflow env):
 #   ABK_CVE_SKIP     comma-separated CVE ids to skip, e.g. "CVE-2026-0038"
 #   ABK_CVE_ONLY     comma-separated CVE ids; when set, apply only these
-#   ABK_CVE_NONFATAL "true" to continue on patch failure instead of aborting
+#   ABK_CVE_STRICT   "true" to abort the build when a patch fails to apply;
+#                    by default failed patches are skipped with a warning
 # ---------------------------------------------------------------------------
 ABK_CVE_SKIP="${ABK_CVE_SKIP:-}"
 ABK_CVE_ONLY="${ABK_CVE_ONLY:-}"
-ABK_CVE_NONFATAL="${ABK_CVE_NONFATAL:-false}"
+ABK_CVE_STRICT="${ABK_CVE_STRICT:-}"
+# Back-compat with the old option: under 1.0.x any ABK_CVE_NONFATAL value
+# other than "true" meant abort on failure, so it still selects strict mode —
+# but an explicitly set ABK_CVE_STRICT wins over it.
+if [ -z "$ABK_CVE_STRICT" ] && [ -n "${ABK_CVE_NONFATAL:-}" ] &&
+   [ "${ABK_CVE_NONFATAL:-}" != "true" ]; then
+  ABK_CVE_STRICT="true"
+fi
+# Normalize; a strictness flag must not silently fail open on a typo.
+case "$(printf '%s' "$ABK_CVE_STRICT" | tr '[:upper:]' '[:lower:]')" in
+  ''|false|no|off|0) ABK_CVE_STRICT="false" ;;
+  true|yes|on|1)     ABK_CVE_STRICT="true" ;;
+  *)
+    abk_warn "unrecognized ABK_CVE_STRICT value '$ABK_CVE_STRICT', treating it as true"
+    ABK_CVE_STRICT="true"
+    ;;
+esac
 
 COMMON_DIR="$(abk_common_dir)"
 abk_require_dir "$COMMON_DIR"
+
+if git -C "$COMMON_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+  COMMON_IS_GIT="true"
+else
+  COMMON_IS_GIT="false"
+fi
 
 detect_series_name() {
   local android="${ABK_BUILD_ANDROID_VERSION:-}"
@@ -125,6 +148,60 @@ guard_present() {
   grep -qF "$guard_string" "$COMMON_DIR/$guard_file"
 }
 
+# A failed "git apply -3" leaves conflict markers in the worktree and
+# unmerged index entries, and an applied patch whose guard assertion fails
+# stays applied — both must be rolled back before the build continues, or a
+# corrupted tree reaches the compiler. Snapshot the touched paths (worktree
+# content plus exact index entries) before trying a patch and restore them
+# on any failure path. Restoring index entries verbatim instead of resetting
+# to HEAD keeps changes that earlier build stages may have staged.
+SNAP_DIR=""
+
+snapshot_before_apply() {
+  local patch_file="$1"
+  local p
+  SNAP_DIR="$(mktemp -d)"
+  git -C "$COMMON_DIR" apply --numstat "$patch_file" 2>/dev/null \
+    | cut -f3- > "$SNAP_DIR/paths" || true
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    if [ -f "$COMMON_DIR/$p" ]; then
+      mkdir -p "$SNAP_DIR/tree/$(dirname "$p")"
+      cp -p "$COMMON_DIR/$p" "$SNAP_DIR/tree/$p"
+    fi
+  done < "$SNAP_DIR/paths"
+  if [ "$COMMON_IS_GIT" = "true" ] && [ -s "$SNAP_DIR/paths" ]; then
+    xargs -r -d '\n' git -C "$COMMON_DIR" ls-files -s -- \
+      < "$SNAP_DIR/paths" > "$SNAP_DIR/index" 2>/dev/null || true
+  fi
+}
+
+restore_after_failure() {
+  local p
+  [ -n "$SNAP_DIR" ] || return 0
+  while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    if [ -f "$SNAP_DIR/tree/$p" ]; then
+      cp -p "$SNAP_DIR/tree/$p" "$COMMON_DIR/$p"
+    else
+      rm -f "$COMMON_DIR/$p"
+    fi
+  done < "$SNAP_DIR/paths"
+  if [ "$COMMON_IS_GIT" = "true" ] && [ -s "$SNAP_DIR/paths" ]; then
+    xargs -r -d '\n' git -C "$COMMON_DIR" update-index --force-remove -- \
+      < "$SNAP_DIR/paths" >/dev/null 2>&1 || true
+    if [ -s "$SNAP_DIR/index" ]; then
+      git -C "$COMMON_DIR" update-index --index-info \
+        < "$SNAP_DIR/index" >/dev/null 2>&1 || true
+    fi
+  fi
+}
+
+discard_snapshot() {
+  [ -z "$SNAP_DIR" ] || rm -rf "$SNAP_DIR"
+  SNAP_DIR=""
+}
+
 while IFS=$'\t' read -r patch_name cves guard_file guard_string subject; do
   case "$patch_name" in
     ''|'#'*) continue ;;
@@ -157,24 +234,30 @@ while IFS=$'\t' read -r patch_name cves guard_file guard_string subject; do
     continue
   fi
 
+  snapshot_before_apply "$patch_file"
+
   ok=""
   if git -C "$COMMON_DIR" apply --check "$patch_file" >/dev/null 2>&1; then
     git -C "$COMMON_DIR" apply "$patch_file"
     ok="plain"
-  elif git -C "$COMMON_DIR" rev-parse --git-dir >/dev/null 2>&1 &&
+  elif [ "$COMMON_IS_GIT" = "true" ] &&
        git -C "$COMMON_DIR" apply -3 "$patch_file" >/dev/null 2>&1; then
     # Three-way merge against the blob ids recorded in the patch. This
     # absorbs small context drift between sublevels.
     ok="3-way"
   fi
 
+  if [ -n "$ok" ] && guard_present "$guard_file" "$guard_string"; then
+    abk_log "APPLY ($cves) [$ok] $subject"
+    applied=$((applied + 1))
+    discard_snapshot
+    continue
+  fi
+
+  restore_after_failure
+  discard_snapshot
   if [ -n "$ok" ]; then
-    if guard_present "$guard_file" "$guard_string"; then
-      abk_log "APPLY ($cves) [$ok] $subject"
-      applied=$((applied + 1))
-      continue
-    fi
-    abk_warn "FAIL  ($cves) patch applied ($ok) but guard line is missing: $patch_name"
+    abk_warn "FAIL  ($cves) patch applied ($ok) but guard line is missing, reverted: $patch_name"
   else
     abk_warn "FAIL  ($cves) patch does not apply: $patch_name"
   fi
@@ -185,12 +268,12 @@ done < "$SERIES_FILE"
 abk_log "summary: applied=$applied already=$already skipped=$skipped failed=$failed"
 
 if [ "$failed" -gt 0 ]; then
-  abk_warn "failed CVE patches: $failed_cves"
-  abk_warn "set ABK_CVE_SKIP=\"<cve-ids>\" to skip them, or ABK_CVE_NONFATAL=true to ignore all failures"
-  if [ "$ABK_CVE_NONFATAL" != "true" ]; then
-    abk_die "one or more CVE patches failed to apply"
+  if [ "$ABK_CVE_STRICT" = "true" ]; then
+    abk_warn "failed CVE patches: $failed_cves"
+    abk_die "one or more CVE patches failed to apply (ABK_CVE_STRICT=true)"
   fi
-  abk_warn "ABK_CVE_NONFATAL=true, continuing despite failures"
+  abk_warn "skipped failed CVE patches, the kernel is built WITHOUT these fixes: $failed_cves"
+  abk_warn "set ABK_CVE_STRICT=true to abort the build on patch failure instead"
 fi
 
 abk_log "done"

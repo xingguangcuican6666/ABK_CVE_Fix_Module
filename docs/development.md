@@ -24,8 +24,12 @@ for the full contract.
    - `git apply -3` → three-way fallback that absorbs small context drift
      between sublevels;
    - after any successful apply the guard line is asserted — if it is still
-     missing the patch is treated as failed;
-   - failures abort the build unless `ABK_CVE_NONFATAL=true`.
+     missing the patch is reverted and treated as failed;
+   - failed patches are logged and skipped: the touched files (and their git
+     index entries) are restored from a pre-apply snapshot, so a half-applied
+     patch or 3-way conflict markers never reach the compiler, and the build
+     continues without those fixes; `ABK_CVE_STRICT=true` aborts the build
+     instead.
 
 ## series.tsv format
 
@@ -85,4 +89,12 @@ git -C "$KERNEL_ROOT/common" reset --hard && git -C "$KERNEL_ROOT/common" clean 
 | --- | --- |
 | `ABK_CVE_SKIP` | Comma-separated CVE ids to skip |
 | `ABK_CVE_ONLY` | When set, apply only these CVE ids |
-| `ABK_CVE_NONFATAL` | `true` = log failures but never abort the build |
+| `ABK_CVE_STRICT` | `true` = abort the build when a patch fails to apply (default: skip with a warning) |
+
+`ABK_CVE_NONFATAL` is kept for backwards compatibility: any explicit value
+other than `true` is treated as `ABK_CVE_STRICT=true` (the 1.0.x semantics,
+which aborted unless the value was exactly `true`). An explicitly set
+`ABK_CVE_STRICT` takes precedence. `ABK_CVE_STRICT` accepts the usual boolean
+spellings (`true/false`, `yes/no`, `on/off`, `1/0`, any case); anything else
+is treated as `true` with a warning, so a typo cannot silently disable
+strict mode.

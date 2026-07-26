@@ -48,7 +48,10 @@ For the active kernel line, `setup.sh` applies the patch series in
   re-runs are safe;
 - applied with `git apply`, falling back to a three-way merge for small
   context drift between sublevels, with the guard line asserted afterwards;
-- otherwise reported as failed, which aborts the build (see options below).
+- otherwise reported as failed and skipped — any partially applied changes
+  are rolled back, the build continues without that fix, and the summary
+  lists the affected CVE ids. Set `ABK_CVE_STRICT=true` to abort the build
+  instead (see options below).
 
 Validated against a clean `android14-6.1` (6.1.118) checkout: first run
 applies what is missing, second run reports 13/13 already applied.
@@ -62,7 +65,11 @@ another external module that runs earlier:
 | --- | --- |
 | `ABK_CVE_SKIP` | Comma-separated CVE ids to skip, e.g. `CVE-2026-0038` |
 | `ABK_CVE_ONLY` | Apply only the listed CVE ids |
-| `ABK_CVE_NONFATAL` | `true` = log patch failures but do not abort the build |
+| `ABK_CVE_STRICT` | `true` = abort the build when a patch fails to apply. Default: failed patches are skipped with a warning |
+
+`ABK_CVE_NONFATAL` (the old opposite of `ABK_CVE_STRICT`) is still accepted:
+any explicit value other than `true` behaves like `ABK_CVE_STRICT=true`,
+exactly as it did in 1.0.x. When both are set, `ABK_CVE_STRICT` wins.
 
 ## Covered CVEs (android14-6.1)
 
