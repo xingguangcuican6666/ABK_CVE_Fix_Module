@@ -12,3 +12,4 @@
 0011-ANDROID-KVM-arm64-size-overflow-checks-for-mem_prote.patch	CVE-2026-0028,CVE-2026-0030,CVE-2026-0031	arch/arm64/kvm/hyp/nvhe/mem_protect.c	if (check_add_overflow(addr, size, &end))	KVM: arm64: size overflow checks for mem_protect HVCs
 0012-ANDROID-KVM-arm64-Check-PGD-alignment-when-creating-.patch	CVE-2026-0029	arch/arm64/kvm/hyp/nvhe/pkvm.c	if (!IS_ALIGNED(pgd_hva, pgd_size))	KVM: arm64: Check PGD alignment when creating a pVM
 0013-ANDROID-arm64-Disable-MTE-at-EL1-and-EL0-when-not-su.patch	CVE-2026-0038	arch/arm64/kvm/arm.c	params->hcr_el2 |= HCR_ATA;	arm64: Disable MTE at EL1 and EL0 when not supported (partial coverage)
+0014-rtmutex-Use-waiter-task-instead-of-current-in-remove_waiter.patch	CVE-2026-43499	kernel/locking/rtmutex.c	struct task_struct *waiter_task = waiter->task;	rtmutex: Use waiter::task instead of current in remove_waiter()

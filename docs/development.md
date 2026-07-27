@@ -22,19 +22,10 @@ for the full contract.
    - `git apply --reverse --check` → counted as **already applied**;
    - `git apply --check` + `git apply` → applied normally;
    - `git apply -3` → three-way fallback that absorbs small context drift
-     between sublevels; after a successful 3-way merge the staged index
-     entries for the touched paths are immediately restored to their
-     pre-patch state (`unstage_index_from_snapshot`) so that ABK modules
-     running after this one see an index that is consistent with the earlier
-     build stages (SUSFS, KernelSU, …) and not contaminated by our merges —
-     only the working-tree files are left patched;
+     between sublevels;
    - after any successful apply the guard line is asserted — if it is still
-     missing the patch is reverted and treated as failed;
-   - failed patches are logged and skipped: the touched files (and their git
-     index entries) are restored from a pre-apply snapshot, so a half-applied
-     patch or 3-way conflict markers never reach the compiler, and the build
-     continues without those fixes; `ABK_CVE_STRICT=true` aborts the build
-     instead.
+     missing the patch is treated as failed;
+   - failures abort the build unless `ABK_CVE_NONFATAL=true`.
 
 ## series.tsv format
 
@@ -82,7 +73,8 @@ bash setup.sh
 ```
 
 Run it twice: the second run must report every patch as `already applied`
-(idempotence check). To restore the tree afterwards:
+(idempotence check). The current `android14-6.1` series contains 14 patches.
+To restore the tree afterwards:
 
 ```bash
 git -C "$KERNEL_ROOT/common" reset --hard && git -C "$KERNEL_ROOT/common" clean -fd
@@ -94,12 +86,4 @@ git -C "$KERNEL_ROOT/common" reset --hard && git -C "$KERNEL_ROOT/common" clean 
 | --- | --- |
 | `ABK_CVE_SKIP` | Comma-separated CVE ids to skip |
 | `ABK_CVE_ONLY` | When set, apply only these CVE ids |
-| `ABK_CVE_STRICT` | `true` = abort the build when a patch fails to apply (default: skip with a warning) |
-
-`ABK_CVE_NONFATAL` is kept for backwards compatibility: any explicit value
-other than `true` is treated as `ABK_CVE_STRICT=true` (the 1.0.x semantics,
-which aborted unless the value was exactly `true`). An explicitly set
-`ABK_CVE_STRICT` takes precedence. `ABK_CVE_STRICT` accepts the usual boolean
-spellings (`true/false`, `yes/no`, `on/off`, `1/0`, any case); anything else
-is treated as `true` with a warning, so a typo cannot silently disable
-strict mode.
+| `ABK_CVE_NONFATAL` | `true` = log failures but never abort the build |

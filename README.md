@@ -1,7 +1,8 @@
 # ABK CVE Patcher
 
 ABK external module that backports the kernel CVE fixes from the Android
-Security Bulletins (December 2025 – July 2026) into the GKI kernel source tree
+Security Bulletins (December 2025 – July 2026) plus selected upstream kernel
+CVE fixes published after the last kernel bulletin into the GKI kernel source tree
 while ABK builds it.
 
 The patches are taken from the matching AOSP common kernel branch
@@ -48,13 +49,10 @@ For the active kernel line, `setup.sh` applies the patch series in
   re-runs are safe;
 - applied with `git apply`, falling back to a three-way merge for small
   context drift between sublevels, with the guard line asserted afterwards;
-- otherwise reported as failed and skipped — any partially applied changes
-  are rolled back, the build continues without that fix, and the summary
-  lists the affected CVE ids. Set `ABK_CVE_STRICT=true` to abort the build
-  instead (see options below).
+- otherwise reported as failed, which aborts the build (see options below).
 
 Validated against a clean `android14-6.1` (6.1.118) checkout: first run
-applies what is missing, second run reports 13/13 already applied.
+applies what is missing, second run reports 14/14 already applied.
 
 ## Options
 
@@ -65,16 +63,12 @@ another external module that runs earlier:
 | --- | --- |
 | `ABK_CVE_SKIP` | Comma-separated CVE ids to skip, e.g. `CVE-2026-0038` |
 | `ABK_CVE_ONLY` | Apply only the listed CVE ids |
-| `ABK_CVE_STRICT` | `true` = abort the build when a patch fails to apply. Default: failed patches are skipped with a warning |
-
-`ABK_CVE_NONFATAL` (the old opposite of `ABK_CVE_STRICT`) is still accepted:
-any explicit value other than `true` behaves like `ABK_CVE_STRICT=true`,
-exactly as it did in 1.0.x. When both are set, `ABK_CVE_STRICT` wins.
+| `ABK_CVE_NONFATAL` | `true` = log patch failures but do not abort the build |
 
 ## Covered CVEs (android14-6.1)
 
-14 CVEs are covered by 13 patches (F2FS, af_unix, EPoll, XFRM, vsock, TLS,
-KVM/pKVM, Hypervisor). See [CVES.md](CVES.md) for the full table, including
+15 CVEs are covered by 14 patches (F2FS, af_unix, EPoll, XFRM, vsock, TLS,
+KVM/pKVM, Hypervisor, rtmutex/futex). See [CVES.md](CVES.md) for the full table, including
 the bulletin CVEs that are intentionally **not** covered: fixes that do not
 apply to the 6.1 kernel line, Arm Mali / Qualcomm vendor components that are
 not part of the GKI source tree, and CVEs whose fixes have not been published

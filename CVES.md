@@ -1,17 +1,18 @@
 # CVE Coverage — android14-6.1
 
-Source archive: Android Security Bulletins 2025-12 through 2026-07.
+Source archive: Android Security Bulletins 2025-12 through 2026-07 and selected upstream kernel CVE fixes published after the last kernel bulletin.
 Bulletins 2026-01, 2026-02, 2026-04, 2026-05, and 2026-07 contain no kernel
 CVEs, so coverage spans the 2025-12, 2026-03, and 2026-06 bulletins.
 
 All patches are the exact commits from the AOSP
 `android14-6.1-2026-06` / `android14-6.1-lts` branches (via LTS merges or
-Google cherry-picks), extracted with `git format-patch`. The series was
+Google cherry-picks), extracted with `git format-patch`, plus one post-bulletin
+stable 6.1 backport for CVE-2026-43499. The series was
 validated against a clean `android14-6.1` 6.1.118 checkout: every patch
 either applies cleanly or is detected as already present, and a second run
-reports 13/13 already applied (idempotent).
+reports 14/14 already applied (idempotent).
 
-## Patched by this module (14 CVEs, 13 patches)
+## Patched by this module (15 CVEs, 14 patches)
 
 | CVE | Bulletin | Subsystem | Severity | Patch |
 | --- | --- | --- | --- | --- |
@@ -29,6 +30,7 @@ reports 13/13 already applied (idempotent).
 | CVE-2026-0031 | 2026-03 | pKVM | Critical | 0011 (same fix as CVE-2026-0028) |
 | CVE-2026-0029 | 2026-03 | pKVM | High | 0012 |
 | CVE-2026-0038 | 2026-03 | Hypervisor | Critical | 0013 (**partial**, see note) |
+| CVE-2026-43499 | upstream post-bulletin | rtmutex / futex_requeue | High | 0014 |
 
 ## Not applicable to the android14-6.1 GKI tree
 
