@@ -22,7 +22,12 @@ for the full contract.
    - `git apply --reverse --check` → counted as **already applied**;
    - `git apply --check` + `git apply` → applied normally;
    - `git apply -3` → three-way fallback that absorbs small context drift
-     between sublevels;
+     between sublevels; after a successful 3-way merge the staged index
+     entries for the touched paths are immediately restored to their
+     pre-patch state (`unstage_index_from_snapshot`) so that ABK modules
+     running after this one see an index that is consistent with the earlier
+     build stages (SUSFS, KernelSU, …) and not contaminated by our merges —
+     only the working-tree files are left patched;
    - after any successful apply the guard line is asserted — if it is still
      missing the patch is reverted and treated as failed;
    - failed patches are logged and skipped: the touched files (and their git

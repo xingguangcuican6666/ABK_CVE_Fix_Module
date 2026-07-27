@@ -99,8 +99,8 @@ find_series_dir() {
 in_cve_list() {
   local cves="$1"
   local list="$2"
-  local cve
-  local item
+  local cve item
+  local -a _cves _list
   IFS=',' read -r -a _cves <<< "$cves"
   IFS=',' read -r -a _list <<< "$list"
   for cve in "${_cves[@]}"; do
@@ -202,6 +202,24 @@ discard_snapshot() {
   SNAP_DIR=""
 }
 
+# After a successful "git apply -3" the index has the merged result staged.
+# Subsequent ABK external modules — and ABK's own build steps — expect the
+# index to carry only the changes from earlier build stages (SUSFS, KernelSU,
+# …).  Restore the index for the touched paths to their pre-patch state from
+# the snapshot while leaving the working-tree modifications in place, so the
+# tree is clean from the perspective of any git tool that follows us.
+unstage_index_from_snapshot() {
+  [ -n "$SNAP_DIR" ]             || return 0
+  [ "$COMMON_IS_GIT" = "true" ]  || return 0
+  [ -s "$SNAP_DIR/paths" ]       || return 0
+  xargs -r -d '\n' git -C "$COMMON_DIR" update-index --force-remove -- \
+    < "$SNAP_DIR/paths" >/dev/null 2>&1 || true
+  if [ -s "$SNAP_DIR/index" ]; then
+    git -C "$COMMON_DIR" update-index --index-info \
+      < "$SNAP_DIR/index" >/dev/null 2>&1 || true
+  fi
+}
+
 while IFS=$'\t' read -r patch_name cves guard_file guard_string subject; do
   case "$patch_name" in
     ''|'#'*) continue ;;
@@ -250,6 +268,12 @@ while IFS=$'\t' read -r patch_name cves guard_file guard_string subject; do
   if [ -n "$ok" ] && guard_present "$guard_file" "$guard_string"; then
     abk_log "APPLY ($cves) [$ok] $subject"
     applied=$((applied + 1))
+    # "git apply -3" stages the merged result to the git index; undo that
+    # staging so modules that run after us see a clean index (working-tree
+    # modifications are kept).
+    if [ "$ok" = "3-way" ]; then
+      unstage_index_from_snapshot
+    fi
     discard_snapshot
     continue
   fi
