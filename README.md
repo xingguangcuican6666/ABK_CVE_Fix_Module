@@ -68,7 +68,10 @@ another external module that runs earlier:
 ## Covered CVEs (android14-6.1)
 
 15 CVEs are covered by 14 patches (F2FS, af_unix, EPoll, XFRM, vsock, TLS,
-KVM/pKVM, Hypervisor, rtmutex/futex). See [CVES.md](CVES.md) for the full table, including
+KVM/pKVM, Hypervisor, rtmutex/futex). For `CVE-2026-43499`, the module carries the public
+stable/upstream `remove_waiter()` fix; if a third-party probe still keys off a generic
+`FUTEX_CMP_REQUEUE_PI -> EDEADLK` observation, that probe/result must be validated separately.
+See [CVES.md](CVES.md) for the full table, including
 the bulletin CVEs that are intentionally **not** covered: fixes that do not
 apply to the 6.1 kernel line, Arm Mali / Qualcomm vendor components that are
 not part of the GKI source tree, and CVEs whose fixes have not been published

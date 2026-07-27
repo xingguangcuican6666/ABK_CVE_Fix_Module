@@ -30,7 +30,7 @@ reports 14/14 already applied (idempotent).
 | CVE-2026-0031 | 2026-03 | pKVM | Critical | 0011 (same fix as CVE-2026-0028) |
 | CVE-2026-0029 | 2026-03 | pKVM | High | 0012 |
 | CVE-2026-0038 | 2026-03 | Hypervisor | Critical | 0013 (**partial**, see note) |
-| CVE-2026-43499 | upstream post-bulletin | rtmutex / futex_requeue | High | 0014 |
+| CVE-2026-43499 | upstream post-bulletin | rtmutex / futex_requeue | High | 0014 (public stable fix; third-party EDEADLK probes may still need separate validation) |
 
 ## Not applicable to the android14-6.1 GKI tree
 

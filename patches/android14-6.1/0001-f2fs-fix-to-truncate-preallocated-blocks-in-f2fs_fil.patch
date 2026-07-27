@@ -55,28 +55,23 @@ Signed-off-by: Sasha Levin <sashal@kernel.org>
 Signed-off-by: Shivani Agarwal <shivani.agarwal@broadcom.com>
 Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 ---
- fs/f2fs/f2fs.h  |  1 +
- fs/f2fs/file.c  | 42 +++++++++++++++++++++++++++++++++++++++++-
- fs/f2fs/inode.c |  8 --------
- 3 files changed, 42 insertions(+), 9 deletions(-)
-
 diff --git a/fs/f2fs/f2fs.h b/fs/f2fs/f2fs.h
-index a02c74875316..2b540d87859e 100644
+index 15a8db4..62d505f 100644
 --- a/fs/f2fs/f2fs.h
 +++ b/fs/f2fs/f2fs.h
-@@ -788,6 +788,7 @@ enum {
+@@ -794,6 +794,7 @@ enum {
  	FI_ALIGNED_WRITE,	/* enable aligned write */
  	FI_COW_FILE,		/* indicate COW file */
  	FI_ATOMIC_COMMITTED,	/* indicate atomic commit completed except disk sync */
-+	FI_OPENED_FILE,         /* indicate file has been opened */
++	FI_OPENED_FILE,		/* indicate file has been opened */
+ 	FI_ATOMIC_REPLACE,	/* indicate atomic replace */
  	FI_MAX,			/* max flag, never be used */
  };
- 
 diff --git a/fs/f2fs/file.c b/fs/f2fs/file.c
-index c6fb179f9d4a..62f2521cd955 100644
+index 3390353..3624c47 100644
 --- a/fs/f2fs/file.c
 +++ b/fs/f2fs/file.c
-@@ -538,6 +538,42 @@ static int f2fs_file_mmap(struct file *file, struct vm_area_struct *vma)
+@@ -536,6 +536,42 @@ static int f2fs_file_mmap(struct file *file, struct vm_area_struct *vma)
  	return 0;
  }
  
@@ -119,7 +114,7 @@ index c6fb179f9d4a..62f2521cd955 100644
  static int f2fs_file_open(struct inode *inode, struct file *filp)
  {
  	int err = fscrypt_file_open(inode, filp);
-@@ -554,7 +590,11 @@ static int f2fs_file_open(struct inode *inode, struct file *filp)
+@@ -552,7 +588,11 @@ static int f2fs_file_open(struct inode *inode, struct file *filp)
  
  	filp->f_mode |= FMODE_NOWAIT;
  
@@ -133,10 +128,10 @@ index c6fb179f9d4a..62f2521cd955 100644
  
  void f2fs_truncate_data_blocks_range(struct dnode_of_data *dn, int count)
 diff --git a/fs/f2fs/inode.c b/fs/f2fs/inode.c
-index ff4a4e92a40c..5b672df194a9 100644
+index a99c151..8961f35 100644
 --- a/fs/f2fs/inode.c
 +++ b/fs/f2fs/inode.c
-@@ -549,14 +549,6 @@ struct inode *f2fs_iget(struct super_block *sb, unsigned long ino)
+@@ -569,13 +569,6 @@ make_now:
  	}
  	f2fs_set_inode_flags(inode);
  
@@ -147,7 +142,9 @@ index ff4a4e92a40c..5b672df194a9 100644
 -			goto bad_inode;
 -		file_dont_truncate(inode);
 -	}
--
+ 
  	unlock_new_inode(inode);
  	trace_f2fs_iget(inode);
- 	return inode;
+
+-- 
+2.53.0
